@@ -1,0 +1,25 @@
+# Analysis of the perceptual evaluation export.
+# Script: scripts/analyze_perceptual.py
+# Paths starting with /path/to/ are placeholders: point them at your own copies.
+
+experiment_dir: /path/to/perceptual_test_export/experiment_data
+metadata_csv: /path/to/metadata/converter_metadata_avid_only_train_val_test_annotated.csv
+dataset_roots:
+  AVID: /path/to/AVID/
+targets:
+  min_db: 45.0
+  max_db: 75.0
+  n: 8
+sample_rate: 16000
+hop_size: 320
+window_length: 400
+vad:
+  enabled: true
+  threshold: 0.5
+  speech_pad_ms: 30
+  min_island_ms: 100
+  min_silence_ms: 100
+screen:
+  floor_db: 6.0
+  min_easy_correct: 5
+  max_missed_share: 0.1

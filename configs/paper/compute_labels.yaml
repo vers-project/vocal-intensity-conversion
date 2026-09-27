@@ -1,0 +1,18 @@
+# Computes the calibrated intensity labels in dB SPL.
+# Script: scripts/compute_labels.py
+# Paths starting with /path/to/ are placeholders: point them at your own copies.
+
+dataset_roots:
+  AVID: /path/to/AVID/
+  VIC: /path/to/VIC/
+  FLombard: /path/to/FLombard/
+csv: /path/to/metadata/vocal_intensity_prediction_metadata.csv
+sr: 16000
+tau: 0.125
+db_at_x_m: 1.0
+output: /path/to/metadata/vocal_intensity_prediction_metadata_with_labels.csv
+launcher:
+  output_dir: /path/to/outputs/compute_labels
+  sweep: null
+  device_launcher:
+    device: local

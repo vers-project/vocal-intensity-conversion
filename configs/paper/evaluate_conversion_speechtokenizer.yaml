@@ -1,0 +1,72 @@
+# Objective evaluation of the speechtokenizer converter on the AVID test split (Table 2).
+# Run with: launch_experiment --config configs/paper/evaluate_conversion_speechtokenizer.yaml \
+#                             --script scripts/evaluate_conversion.py
+# converter.config_path / ckpt_path: the config.yaml and checkpoint saved in the converter run directory.
+# Paths starting with /path/to/ are placeholders: point them at your own copies.
+
+converter:
+  config_path: /path/to/outputs/intensity_conversion_cgan_v2_labels_avid_domains/09-12-26/22-38-02/2/config.yaml
+  ckpt_path: /path/to/outputs/intensity_conversion_cgan_v2_labels_avid_domains/09-12-26/22-38-02/2/checkpoints/converter-epoch=0599.ckpt
+data:
+  metadata_csv: /path/to/metadata/all_corpora_prediction_metadata_with_labels_directive_annotations_sentences_test_corrected.csv
+  dataset_roots:
+    AVID: /path/to/AVID/
+  split: test
+label_extractor:
+  type: wav2vec2
+  model_name: /path/to/wav2vec2/
+  layer: 2
+  whitening: true
+  whitening_n_fft: 1024
+  whitening_hop_length: 320
+  normalize_features: false
+  normalize_features_per_band: false
+predictor:
+  ckpt_path: /path/to/outputs/intensity_prediction/09-08-26/16-26-39/1/checkpoints/predictor-epoch=043-val/loss=0.0487.ckpt
+  ckpt_prefix: predictor
+  model:
+    type: transformer
+    d_model: 128
+    n_heads: 4
+    n_layers: 6
+    head_dim: 128
+    mlp_ratio: 4
+    dropout: 0.0
+levels:
+  level_column: level
+  group_columns:
+  - speaker_uid
+  - session_index
+  - repetition
+  - sentence_id
+  exclude_column: excluded
+vad:
+  enabled: true
+  threshold: 0.5
+  speech_pad_ms: 30
+  min_island_ms: 100
+  min_silence_ms: 100
+metrics:
+- type: level
+- type: egemaps
+- type: f0_praat
+- type: f0_swiftf0
+- type: formants_praat
+- type: asr_whisper
+- type: asr_wav2vec2
+- type: speaker_ecapa
+  savedir: /path/to/speechbrain/spkrec-ecapa-voxceleb
+- type: speaker_wavlm
+- type: mos_utmos
+evaluation:
+  batch_size: 16
+  with_codec: true
+  intensity_predictor: true
+  checkpoint_every: 100
+  wer_normalizer: whisper_en
+num_workers: 8
+launcher:
+  output_dir: /path/to/outputs/evaluate_conversion_speechtokenizer
+  sweep: null
+  device_launcher:
+    device: local

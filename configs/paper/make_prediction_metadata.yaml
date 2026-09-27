@@ -1,0 +1,18 @@
+# Assembles the train/val/test metadata shared by P_phi and the converter.
+# Script: scripts/make_prediction_metadata.py
+# Paths starting with /path/to/ are placeholders: point them at your own copies.
+
+output_csv: /path/to/metadata/vocal_intensity_prediction_metadata.csv
+datasets:
+  AVID:
+    root: /path/to/AVID/
+    csv: /path/to/AVID/metadata.csv
+  VIC:
+    root: /path/to/VIC/
+    csv: /path/to/metadata/vic_metadata_corrected_distance.csv
+  FLombard:
+    root: /path/to/FLombard/
+    csv: /path/to/FLombard/trimmed/07-16-26/19-21-29/0/metadata.csv
+train_fraction: 0.8
+val_speakers: 4
+random_seed: 42

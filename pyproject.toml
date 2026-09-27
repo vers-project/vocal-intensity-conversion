@@ -1,0 +1,118 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "vic"
+version = "0.1.0"
+requires-python = "==3.12.*"
+dependencies = [
+    "pandas",
+    "numpy",
+    "lightning",
+    "rotary-embedding-torch",
+    "jupyter",
+    "matplotlib",
+    "speech_tokenizer",
+    "experiment-launcher",
+    "audio-utils",
+    # scripts/convert_test_set.py trims the silence around each rendered sentence.
+    # The weights ship inside the wheel, so this needs no network access on the cluster.
+    "silero-vad",
+    # Objective evaluation of conversions (scripts/evaluate_conversion.py).  The core is
+    # light — pandas/numpy/audio-utils — and each metric family's heavy backends live in
+    # its own extra below, so a node that only needs the phonetics metrics does not pull
+    # transformers.
+    "speech-eval",
+]
+
+[project.scripts]
+vic-predict = "vic.cli:main"
+
+[project.optional-dependencies]
+cpu = [
+  "torch",
+  "torchvision",
+  "torchaudio",
+  "torchcodec",
+  "plotly"
+]
+hub = [
+  "huggingface_hub",
+]
+# The mel and WavLM conversion domains (vic/codec/mel_vocoder.py,
+# vic/codec/wavlm_hifigan.py).  The vocoders themselves are resolved by path -- neither is
+# pip-installable, see scripts/download_vocoders.py -- so what is declared here is only
+# what their modules import at load time: librosa for BigVGAN's mel filterbank (its
+# `meldataset` imports it at module level, and it is the reason the filters are Slaney-
+# normalised rather than torchaudio's HTK default), and huggingface_hub because
+# `bigvgan.py` imports PyTorchModelHubMixin even though we never call it.
+vocoder = [
+  "librosa",
+  "huggingface_hub",
+]
+# Metric backends, mirroring speech-eval's own extras: install only the families a given
+# run measures.  `phonetics` is openSMILE + Praat + SwiftF0 and needs no model hub;
+# `asr` pulls transformers and jiwer, and Whisper additionally needs a download.
+phonetics = [
+  "speech-eval[phonetics]",
+]
+asr = [
+  "speech-eval[asr]",
+]
+speaker = [
+  "speech-eval[speaker]",
+]
+cu128 = [
+  "torch",
+  "torchvision",
+  "torchaudio",
+  "torchcodec"
+]
+
+[tool.uv]
+conflicts = [
+  [
+    { extra = "cpu" },
+    { extra = "cu128" },
+  ],
+]
+
+[tool.uv.sources]
+# By providing multiple options for the same package, uv will select 
+# the one that matches the index provided via the CLI.
+torch = [
+  { index = "pytorch-cu128", extra = "cu128"},
+  { index = "pytorch-cpu", extra = "cpu"},
+]
+torchvision = [
+  { index = "pytorch-cu128", extra = "cu128"},
+  { index = "pytorch-cpu", extra = "cpu"},
+]
+torchaudio = [
+  { index = "pytorch-cu128", extra = "cu128"},
+  { index = "pytorch-cpu", extra = "cpu"},
+]
+# Always pull torchcodec from CPU index regardless of the global choice
+torchcodec = { index = "pytorch-cpu" }
+
+experiment-launcher = { git = "https://github.com/vers-project/slurm_launcher", tag = "v0.1.0" }
+speech_tokenizer = { git = "https://github.com/vers-project/speech_tokenizer", tag = "v0.1.0" }
+audio-utils = { git = "https://github.com/vers-project/audio_utils", tag = "v0.1.0" }
+speech-eval = { git = "https://github.com/vers-project/speech-eval", tag = "v0.1.0" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.setuptools.packages.find]
+where   = ["."]
+include = ["vic*"]
+
+[tool.ty.environment]
+root = ["."]

@@ -1,0 +1,54 @@
+# Displacement slopes and preservation measures from an evaluation run.
+# Script: scripts/analyze_conversion.py
+# Paths starting with /path/to/ are placeholders: point them at your own copies.
+
+run_dir: /path/to/outputs/evaluate_conversion_wavlm/<run>/0
+group_col: speaker_uid
+n_boot: 10000
+displacement:
+  intensity.leq_db:
+    label: intensity (P_phi)
+    unit: dB
+  level.rms_dbfs:
+    label: amplitude
+    unit: dBFS
+  f0_praat.median_hz:
+    label: F0 median (Praat)
+    unit: Hz
+  f0_praat.mean_semitones:
+    label: F0 mean (Praat)
+    unit: st
+  f0_swiftf0.median_hz:
+    label: F0 median (SwiftF0)
+    unit: Hz
+  egemaps.alphaRatio_sma3_voiced_mean:
+    label: alpha ratio
+    unit: dB
+  egemaps.hammarbergIndex_sma3_voiced_mean:
+    label: Hammarberg index
+    unit: dB
+  egemaps.slope0-500_sma3_voiced_mean:
+    label: spectral slope 0-500
+    unit: dB/kHz
+  egemaps.slope500-1500_sma3_voiced_mean:
+    label: spectral slope 500-1500
+    unit: dB/kHz
+  formants_praat.f1_median_hz:
+    label: F1 median (Praat)
+    unit: Hz
+  formants_praat.f2_median_hz:
+    label: F2 median (Praat)
+    unit: Hz
+  formants_praat.f3_median_hz:
+    label: F3 median (Praat)
+    unit: Hz
+preservation:
+- speaker_ecapa
+- speaker_wavlm
+- asr_whisper
+- asr_wav2vec2
+levels:
+  1: soft
+  2: normal
+  3: loud
+  4: veryloud

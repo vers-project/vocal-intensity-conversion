@@ -1,0 +1,12 @@
+# Builds the AVID metadata table.
+# Script: scripts/prepare_avid_metadata.py
+# Paths starting with /path/to/ are placeholders: point them at your own copies.
+
+segments_csv: /path/to/AVID/segments_metadata.csv
+output_csv: /path/to/AVID/avid_converter_metadata.csv
+corpus_name: avid
+split_fractions:
+  train: 40
+  val: 4
+  test: 6
+random_seed: 42

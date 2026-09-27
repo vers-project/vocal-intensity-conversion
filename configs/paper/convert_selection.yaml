@@ -1,0 +1,41 @@
+# Renders the perceptual-evaluation stimuli (8 source recordings x 8 target levels).
+# Run with: launch_experiment --config configs/paper/convert_selection.yaml \
+#                             --script scripts/convert_selection.py
+# converter.config_path / ckpt_path: the config.yaml and checkpoint saved in the converter run directory.
+# Paths starting with /path/to/ are placeholders: point them at your own copies.
+
+converter:
+  config_path: /path/to/outputs/intensity_conversion_cgan_v2_labels_avid_domains/09-12-26/22-38-02/1/config.yaml
+  ckpt_path: /path/to/outputs/intensity_conversion_cgan_v2_labels_avid_domains/09-12-26/22-38-02/1/checkpoints/converter-epoch=0599.ckpt
+data:
+  metadata_csv: /path/to/metadata/all_corpora_prediction_metadata_with_labels_directive_annotations_sentences_test_corrected.csv
+  dataset_roots:
+    AVID: /path/to/AVID/
+selection:
+  csv: /path/to/metadata/cgan_to_generate.csv
+  columns:
+    speaker: speaker
+    sentence: sentence
+    level: level
+    pass: pass
+  corpus_columns:
+    speaker: subject_id
+    sentence: sentence_id
+    level: level
+    pass: repetition
+vad:
+  enabled: true
+  threshold: 0.5
+  speech_pad_ms: 30
+  min_island_ms: 100
+  min_silence_ms: 100
+conversion:
+  n_targets: 8
+  intensity_min_db: 45.0
+  intensity_max_db: 75.0
+num_workers: 4
+launcher:
+  output_dir: /path/to/outputs/convert_selection
+  sweep: null
+  device_launcher:
+    device: local

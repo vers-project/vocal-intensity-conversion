@@ -1,0 +1,40 @@
+# Intensity predictor P_phi (wav2vec 2.0 layer 2 + Transformer head).
+# Run with: launch_experiment --config configs/paper/train_predictor.yaml \
+#                             --script scripts/train_predictor.py
+# Paths starting with /path/to/ are placeholders: point them at your own copies.
+
+data:
+  dataset_roots:
+    AVID: /path/to/AVID/
+    VIC: /path/to/VIC/
+    FLombard: /path/to/FLombard/
+  metadata_csv: /path/to/metadata/all_corpora_prediction_metadata_with_labels.csv
+  chunk_duration_s: 2
+  window_length: 400
+extractor:
+  normalize_features: false
+  normalize_features_per_band: false
+  whitening_n_fft: 1024
+  whitening_hop_length: 320
+  type: wav2vec2
+  model_name: /path/to/wav2vec2/
+  layer: 2
+  whitening: true
+model:
+  type: transformer
+  d_model: 128
+  n_heads: 4
+  n_layers: 6
+  head_dim: 128
+  mlp_ratio: 4
+  dropout: 0.2
+training:
+  batch_size: 32
+  num_workers: 4
+  max_epochs: 50
+  log_every_n_steps: 50
+  augmentation: {}
+launcher:
+  output_dir: /path/to/outputs/intensity_prediction
+  device_launcher:
+    device: local

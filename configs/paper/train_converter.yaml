@@ -1,0 +1,150 @@
+# Converter C_theta, trained once per encoder/decoder pair: log-mel + BigVGAN-v2,
+# WavLM-Large layer 6 + kNN-VC HiFi-GAN, and SpeechTokenizer. The paper reports epoch 599.
+# Run with: launch_experiment --config configs/paper/train_converter.yaml \
+#                             --script scripts/train_converter_cgan_v2_labels.py
+# Vocoder weights: scripts/download_vocoders.py.
+# Paths starting with /path/to/ are placeholders: point them at your own copies.
+
+data:
+  metadata_csv: /path/to/metadata/converter_metadata_avid_only_train_val_test_annotated.csv
+  dataset_roots:
+    AVID: /path/to/AVID/
+  chunk_duration_s: 2.0
+  window_length: 551
+extractor:
+  type: mel_vocoder
+  whitening: false
+  normalize_features: false
+  normalize_features_per_band: false
+  normalize_sequence: false
+label_extractor:
+  type: wav2vec2
+  model_name: /path/to/wav2vec2/
+  layer: 2
+  whitening: true
+  whitening_n_fft: 1024
+  whitening_hop_length: 320
+  normalize_features: false
+  normalize_features_per_band: false
+predictor:
+  ckpt_path: /path/to/outputs/intensity_prediction/09-08-26/16-26-39/1/checkpoints/predictor-epoch=043-val/loss=0.0487.ckpt
+  ckpt_prefix: predictor
+  model:
+    type: transformer
+    d_model: 128
+    n_heads: 4
+    n_layers: 6
+    head_dim: 128
+    mlp_ratio: 4
+    dropout: 0.0
+model:
+  converter:
+    type: contextual
+    d_model: 128
+    n_heads: 4
+    n_layers: 6
+    head_dim: 128
+    mlp_ratio: 4
+    dropout: 0.0
+    intensity_embed:
+      type: sinusoidal
+      embed_dim: 64
+      d_sin: 64
+    attn_window: null
+  discriminator:
+    d_model: 128
+    n_heads: 4
+    n_layers: 6
+    head_dim: 32
+    mlp_ratio: 4
+    dropout: 0.0
+    attn_type: l2
+    attn_window: null
+  conditioning:
+    type: projection
+    vicinity_db: 2.5
+    min_offset_db: 6.0
+    intensity_embed:
+      type: sinusoidal
+      embed_dim: 64
+      d_sin: 64
+training:
+  batch_size: 128
+  num_workers: 8
+  max_epochs: 2000
+  log_every_n_steps: 50
+  lr_g: 0.0002
+  lr_d: 5.0e-05
+  gradient_clip_val: 1.0
+  patience: null
+  checkpoint_every_n_epochs: 100
+  spectral_norm: true
+  intensity_range_db:
+  - 42.8
+  - 76.1
+  tau_src:
+    source: labels
+    floor_db: 12.5
+  frame_critic:
+    weight: 0.0
+    silence_db: null
+  loss_weights:
+    fake: 1.0
+    cycle: 1.0
+    identity: 1.0
+    mismatch: 1.0
+conversion_eval:
+  split: val
+  n_groups: 24
+  every_n_epochs: 100
+  n_boot: 1000
+  batch_size: 16
+  group_col: speaker_uid
+  num_workers: 4
+  save_figures: true
+  metrics:
+  - type: level
+  - type: f0_praat
+  - type: formants_praat
+  - type: egemaps
+  - type: asr_wav2vec2
+  - type: speaker_ecapa
+    savedir: /path/to/speechbrain/spkrec-ecapa-voxceleb
+  - type: mos_utmos
+  intensity_predictor: true
+  displacement:
+  - intensity.leq_db
+  - level.rms_dbfs
+  - f0_praat.median_hz
+  - formants_praat.f1_median_hz
+  - formants_praat.f2_median_hz
+  - egemaps.alphaRatio_sma3_voiced_mean
+  - egemaps.hammarbergIndex_sma3_voiced_mean
+generation:
+  n_samples: 16
+  n_targets: 6
+  intensity_min_db: 45.0
+  intensity_max_db: 75.0
+  every_n_epochs: 100
+  num_workers: 0
+launcher:
+  output_dir: /path/to/outputs/intensity_conversion
+  sweep:
+    zip:
+      domain:
+      - extractor.type: mel_vocoder
+        extractor.backend: bigvgan
+        extractor.repo_path: /path/to/vocoders/BigVGAN
+        extractor.model_dir: /path/to/vocoders/bigvgan_v2_22khz_80band_fmax8k_256x
+        data.window_length: 551
+      - extractor.type: wavlm_hifigan
+        extractor.repo_path: /path/to/vocoders/knn-vc
+        extractor.wavlm_ckpt: /path/to/vocoders/knn-vc-weights/WavLM-Large.pt
+        extractor.hifigan_ckpt: /path/to/vocoders/knn-vc-weights/g_02500000.pt
+        data.window_length: 400
+      - extractor.type: nac
+        extractor.config_path: configs/paper/speech_tokenizer.yaml
+        extractor.ckpt_path: /path/to/speech_tokenizer/SpeechTokenizer.pt
+        data.window_length: 400
+  device_launcher:
+    device: local

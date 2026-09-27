@@ -1,0 +1,7 @@
+.venv/
+*.egg-info/
+__pycache__/
+outputs/
+
+# Private working files: a separate git repository, never part of this one.
+private/

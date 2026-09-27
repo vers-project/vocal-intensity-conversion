@@ -1,0 +1,19 @@
+# Merges the manual AVID annotations into the metadata table.
+# Script: scripts/merge_annotations.py
+# Paths starting with /path/to/ are placeholders: point them at your own copies.
+
+base: /path/to/metadata/converter_metadata_avid_only_new_format_train_val_test.csv
+annotations:
+  val: /path/to/metadata/all_corpora_prediction_metadata_with_labels_val_corrected_sentences.csv
+  test: /path/to/metadata/all_corpora_prediction_metadata_with_labels_directive_annotations_sentences_test_corrected.csv
+output: converter_metadata_avid_only_train_val_test_annotated.csv
+key:
+- signal_path
+- start_s
+- end_s
+level_column: level
+group_columns:
+- speaker_uid
+- session_index
+- repetition
+- sentence_id
