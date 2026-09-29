@@ -30,37 +30,40 @@ cd vocal-intensity-conversion
 uv sync --extra cpu            # or --extra cu128 for CUDA 12.8
 ```
 
-The evaluation needs extra metric back-ends, and the log-mel and WavLM pairs need their
-vocoders:
-
-```bash
-uv sync --extra cpu --extra phonetics --extra asr --extra speaker
-uv run --extra cpu --extra vocoder scripts/download_vocoders.py --dest /path/to/vocoders
-```
-
 ## Model checkpoints
 
 | model | description | link |
 |---|---|---|
 | Intensity predictor P_φ | wav2vec 2.0 layer 2 + Transformer head | *to come* |
-| Converter, WavLM | WavLM-Large layer 6 + kNN-VC HiFi-GAN | *to come* |
-| Converter, log-mel | log-mel + BigVGAN-v2 | *to come* |
-| Converter, SpeechTokenizer | SpeechTokenizer | *to come* |
+| Converters C_θ | one per encoder/decoder pair: WavLM (available), log-mel and SpeechTokenizer (to come) | [Hugging Face](https://huggingface.co/vers-project/vocal-intensity-conversion) |
 
 ## Converting speech
 
 ```bash
-uv run --extra cpu scripts/convert.py \
-    --checkpoint /path/to/converter.ckpt \
-    --config     /path/to/converter_config.yaml \
-    --input      speech.wav \
-    --target-db  70.0 \
-    --output     speech_70dB.wav
+# on a CUDA machine, replace --extra cpu with --extra cu128
+uv run --extra cpu --extra hub scripts/convert.py \
+    --model     vers-project/vocal-intensity-conversion \
+    --subfolder converter-wavlm \
+    --input     speech.wav \
+    --target-db 70.0 \
+    --output    speech_70dB.wav
 ```
 
-`--target-db` is the target intensity in dB SPL at 1 m.
+`--target-db` is the target intensity in dB SPL at 1 m. The first run downloads the
+converter and, for the WavLM converter, WavLM-Large and the kNN-VC HiFi-GAN (about
+1.3 GB) into `~/.cache/vic`. To convert with your own training run instead, pass
+`--checkpoint /path/to/converter.ckpt --config /path/to/config.yaml` in place of
+`--model` and `--subfolder`.
 
 ## Reproducing the paper
+
+The evaluation needs extra metric back-ends, and training and evaluation with the
+log-mel and WavLM pairs need their vocoders on disk:
+
+```bash
+uv sync --extra cpu --extra phonetics --extra asr --extra speaker
+uv run --extra cpu --extra vocoder scripts/download_vocoders.py --dest /path/to/vocoders
+```
 
 Every experiment is launched from a configuration in `configs/paper/`. Paths starting with
 `/path/to/` are placeholders for your own copies of the data, weights and outputs.

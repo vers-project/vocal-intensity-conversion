@@ -97,7 +97,13 @@ def resolve_bundle(
     if path.is_dir():
         return path / subfolder if subfolder else path
 
-    from huggingface_hub import snapshot_download
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError as e:
+        raise ImportError(
+            f"{path_or_repo_id!r} is not a local directory, so it is read as a Hugging "
+            "Face Hub repo id, which needs huggingface_hub: add --extra hub."
+        ) from e
 
     pattern = f"{subfolder}/*" if subfolder else None
     root = Path(snapshot_download(

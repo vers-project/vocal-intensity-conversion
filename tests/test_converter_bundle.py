@@ -107,3 +107,19 @@ def test_bundle_without_label_scaler_is_refused(tmp_path):
     with pytest.raises(KeyError, match="label_scaler"):
         load_converter_bundle(tmp_path / "bundle")
 
+
+def test_a_hub_id_downloads_only_the_requested_subfolder(tmp_path, monkeypatch):
+    huggingface_hub = pytest.importorskip("huggingface_hub")
+    from vic.converter_bundle import resolve_bundle
+
+    calls = []
+
+    def snapshot_download(repo_id, revision, allow_patterns):
+        calls.append((repo_id, revision, allow_patterns))
+        return str(tmp_path)
+
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", snapshot_download)
+    path = resolve_bundle("org/models", revision="v1.0", subfolder="converter-wavlm")
+
+    assert path == tmp_path / "converter-wavlm"
+    assert calls == [("org/models", "v1.0", "converter-wavlm/*")]

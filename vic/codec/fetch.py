@@ -111,6 +111,17 @@ def fetch_github_archive(url: str, dest: Path) -> Path:
     return dest
 
 
+def ensure_extractor_files(extractor_type: str, root: str | Path | None = None) -> dict[str, str]:
+    """The file-path keys of an ``extractor`` block, downloaded under ``root`` if missing."""
+    fetchers = {"wavlm_hifigan": ensure_knnvc}
+    if extractor_type not in fetchers:
+        raise NotImplementedError(
+            f"No automatic download for extractor type {extractor_type!r} yet; "
+            f"available: {sorted(fetchers)}."
+        )
+    return fetchers[extractor_type](root)
+
+
 def ensure_knnvc(root: str | Path | None = None, force: bool = False) -> dict[str, str]:
     """kNN-VC code and weights under ``root``, downloading what is missing.
 

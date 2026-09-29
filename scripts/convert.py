@@ -1,15 +1,30 @@
 """Intensity conversion inference script.
 
-Converts one or more audio files to a target vocal intensity using a trained
-converter checkpoint.  ``--config`` is the converter's own training YAML: the
-extractor, converter architecture and label scaler are all read from it, so the
-inference path is built the same way ``train_converter_cgan_v2_labels.py`` builds it.
+Converts one or more audio files to a target vocal intensity with a trained converter,
+loaded in one of two ways:
+
+``--model``
+    A converter bundle (``vic/converter_bundle.py``): a Hugging Face Hub repo id or a
+    local directory.  The encoder and vocoder weights the bundle needs are downloaded
+    into a cache (``vic/codec/fetch.py``) unless ``--vocoder-dir`` names a tree that
+    holds them.
+``--checkpoint`` + ``--config``
+    A converter training checkpoint and the run's own training YAML, whose extractor
+    block gives every path.
 
 ``--target-db`` is τ in **dB SPL at 1 m**, the scale P_φ regresses — not dBFS.
 
 Usage
 -----
-Single file:
+From the Hub:
+    uv run --extra cpu --extra hub scripts/convert.py \\
+        --model      vers-project/vocal-intensity-conversion \\
+        --subfolder  converter-wavlm \\
+        --input      audio/speech.wav \\
+        --target-db  70.0 \\
+        --output     audio/speech_converted.wav
+
+Single file, from a training checkpoint:
     uv run scripts/convert.py \\
         --checkpoint checkpoints/converter/converter-best.ckpt \\
         --config     configs/converter.yaml \\
@@ -42,7 +57,8 @@ import torch
 import torchaudio
 import yaml
 
-from vic.converter_bundle import load_converter_from_ckpt
+from vic.codec.fetch import ensure_extractor_files
+from vic.converter_bundle import load_converter_bundle, load_converter_from_ckpt
 from vic.core import AudioCodec
 from vic.data.audio_batch import AudioBatch
 from vic.data.transforms import (
@@ -124,10 +140,20 @@ def resolve_inputs(input_pattern: str) -> list[str]:
 
 def main():
     parser = argparse.ArgumentParser(description="Vocal intensity conversion inference.")
-    parser.add_argument("--checkpoint", required=True,
-                        help="Path to a converter training .ckpt file.")
-    parser.add_argument("--config", required=True,
-                        help="Path to converter YAML config (same one used for training).")
+    parser.add_argument("--model", default=None,
+                        help="Converter bundle: Hugging Face Hub repo id or local directory.")
+    parser.add_argument("--subfolder", default=None,
+                        help="Bundle subfolder inside --model (e.g. converter-wavlm).")
+    parser.add_argument("--revision", default=None,
+                        help="Hub tag, branch or commit of --model (default: main).")
+    parser.add_argument("--vocoder-dir", default=None,
+                        help="Encoder/vocoder tree for --model, in the layout of "
+                             "scripts/download_vocoders.py; missing files are downloaded "
+                             "into it. Default: the cache, $VIC_CACHE or ~/.cache/vic.")
+    parser.add_argument("--checkpoint", default=None,
+                        help="Converter training .ckpt file (instead of --model).")
+    parser.add_argument("--config", default=None,
+                        help="The run's training YAML, with --checkpoint.")
     parser.add_argument("--input", required=True,
                         help="Input audio file or glob pattern (quote globs).")
     parser.add_argument("--target-db", type=float, required=True,
@@ -146,7 +172,22 @@ def main():
     if args.output is None and args.output_dir is None:
         parser.error("Provide --output (single file) or --output-dir (batch).")
 
-    cfg = yaml.safe_load(Path(args.config).read_text())
+    if (args.model is None) == (args.checkpoint is None):
+        parser.error("Provide either --model, or --checkpoint with --config.")
+    if args.checkpoint is not None and args.config is None:
+        parser.error("--checkpoint needs --config.")
+
+    if args.model is not None:
+        converter, cfg = load_converter_bundle(
+            args.model, revision=args.revision, subfolder=args.subfolder
+        )
+        cfg["extractor"].update(
+            ensure_extractor_files(cfg["extractor"]["type"], args.vocoder_dir)
+        )
+    else:
+        cfg = yaml.safe_load(Path(args.config).read_text())
+        converter = load_converter_from_ckpt(args.checkpoint, cfg)
+
     device = torch.device(
         args.device if args.device else ("cuda" if torch.cuda.is_available() else "cpu")
     )
@@ -163,7 +204,7 @@ def main():
         )
     codec = codec.to(device).eval()
 
-    converter = load_converter_from_ckpt(args.checkpoint, cfg).to(device)
+    converter = converter.to(device)
     if converter.output_proj.out_features != codec.latent_dim:
         parser.error(
             f"The converter expects {converter.output_proj.out_features}-dim latents "

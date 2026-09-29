@@ -65,3 +65,9 @@ def test_default_root_is_the_vic_cache(tmp_path, network, monkeypatch):
     paths = ensure_knnvc()
     assert paths["repo_path"] == str(tmp_path / "cache" / KNNVC_REPO_DIR)
 
+
+def test_an_extractor_without_a_fetcher_is_refused():
+    from vic.codec.fetch import ensure_extractor_files
+
+    with pytest.raises(NotImplementedError, match="mel_vocoder"):
+        ensure_extractor_files("mel_vocoder")
