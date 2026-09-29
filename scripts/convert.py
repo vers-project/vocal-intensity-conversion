@@ -42,7 +42,7 @@ import torch
 import torchaudio
 import yaml
 
-from vic.checkpoints import load_submodule
+from vic.converter_bundle import load_converter_from_ckpt
 from vic.core import AudioCodec
 from vic.data.audio_batch import AudioBatch
 from vic.data.transforms import (
@@ -51,28 +51,7 @@ from vic.data.transforms import (
     normalize_sequence_from_config,
     prepare_waveform,
 )
-from vic.models.converter import build_converter
 from vic.training.extraction_pipeline import build_extractor
-from vic.training.utils import load_label_scaler
-
-
-# ---------------------------------------------------------------------------
-# Checkpoint loading
-# ---------------------------------------------------------------------------
-
-def load_converter_from_ckpt(ckpt_path: str, cfg: dict, codec: AudioCodec) -> torch.nn.Module:
-    """Rebuild C_θ and load its weights from a converter training checkpoint.
-
-    The label scaler comes from the checkpoint when it is there and from the
-    config otherwise — it is a fitted quantity the architecture does not carry,
-    and a converter built without the one it was trained under normalises τ
-    wrongly while raising nothing.
-    """
-    label_scaler = load_label_scaler(ckpt_path, cfg)
-    converter = build_converter(cfg, codec.latent_dim, label_scaler=label_scaler)
-    load_submodule(converter, ckpt_path, prefix="converter")
-    converter.eval()
-    return converter
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +163,12 @@ def main():
         )
     codec = codec.to(device).eval()
 
-    converter = load_converter_from_ckpt(args.checkpoint, cfg, codec).to(device)
+    converter = load_converter_from_ckpt(args.checkpoint, cfg).to(device)
+    if converter.output_proj.out_features != codec.latent_dim:
+        parser.error(
+            f"The converter expects {converter.output_proj.out_features}-dim latents "
+            f"but {type(codec).__name__} produces {codec.latent_dim}."
+        )
     normalize = normalize_sequence_from_config(cfg, NORMALIZE_SEQUENCE_CONVERTER)
 
     input_paths = resolve_inputs(args.input)

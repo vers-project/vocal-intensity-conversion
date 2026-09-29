@@ -24,23 +24,15 @@ import torch
 import torch.nn as nn
 
 
-def load_submodule(
-    module: nn.Module,
-    ckpt_path: str | Path,
-    prefix: str = "predictor",
-    strict: bool = True,
-) -> nn.Module:
-    """Load one submodule's weights in place from a Lightning checkpoint.
+def read_submodule_state(ckpt_path: str | Path, prefix: str) -> dict[str, torch.Tensor]:
+    """One submodule's ``state_dict`` out of a Lightning checkpoint, prefix stripped.
 
     Parameters
     ----------
-    module    : the already-built submodule to load into.  Returned, so this
-                composes with a builder: ``load_submodule(build_predictor(...), ...)``.
     ckpt_path : path to the ``.ckpt``.
     prefix    : the submodule's attribute name on the LightningModule, without
                 the trailing dot — ``"predictor"``, ``"converter"``,
                 ``"student_predictor"`` for an archived distillation checkpoint.
-    strict    : passed through to ``load_state_dict``.
 
     Raises
     ------
@@ -66,8 +58,22 @@ def load_submodule(
             f"No keys with prefix '{dotted}' found in {ckpt_path}. "
             f"Available top-level prefixes: {available}"
         )
+    return selected
 
-    module.load_state_dict(selected, strict=strict)
+
+def load_submodule(
+    module: nn.Module,
+    ckpt_path: str | Path,
+    prefix: str = "predictor",
+    strict: bool = True,
+) -> nn.Module:
+    """Load one submodule's weights in place from a Lightning checkpoint.
+
+    ``module`` is the already-built submodule, returned so this composes with a
+    builder: ``load_submodule(build_predictor(...), ...)``.  ``prefix`` is as in
+    :func:`read_submodule_state`, and ``strict`` is passed to ``load_state_dict``.
+    """
+    module.load_state_dict(read_submodule_state(ckpt_path, prefix), strict=strict)
     return module
 
 

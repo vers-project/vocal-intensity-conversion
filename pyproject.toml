@@ -11,6 +11,8 @@ dependencies = [
     "numpy",
     "lightning",
     "rotary-embedding-torch",
+    # Converter bundles (vic/converter_bundle.py) store their weights as safetensors.
+    "safetensors",
     "jupyter",
     "matplotlib",
     "speech_tokenizer",
