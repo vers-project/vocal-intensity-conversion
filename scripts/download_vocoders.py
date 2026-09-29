@@ -47,7 +47,8 @@ What lands where, and what it is for
 ``DIR/bigvgan_v2_22khz_80band_fmax8k_256x/``
                                      ``config.json`` + ``bigvgan_generator.pt`` from
                                      https://huggingface.co/nvidia/bigvgan_v2_22khz_80band_fmax8k_256x
-``DIR/knn-vc/``                      clone of https://github.com/bshall/knn-vc (MIT)
+``DIR/knn-vc/``                      https://github.com/bshall/knn-vc (MIT) at the commit
+                                     pinned in ``vic/codec/fetch.py``
 ``DIR/knn-vc-weights/``              ``WavLM-Large.pt``, ``prematch_g_02500000.pt`` and
                                      ``g_02500000.pt`` from that repo's v0.1 release
 
@@ -70,22 +71,22 @@ import argparse
 import os
 import subprocess
 import sys
-import urllib.request
 from pathlib import Path
+
+from vic.codec.fetch import (
+    KNNVC_RELEASE,
+    KNNVC_WEIGHTS_DIR,
+    ensure_knnvc,
+    fetch,
+)
 
 # --- mel domain -------------------------------------------------------------------
 BIGVGAN_REPO = "https://github.com/NVIDIA/BigVGAN.git"
 BIGVGAN_MODEL = "nvidia/bigvgan_v2_22khz_80band_fmax8k_256x"
 BIGVGAN_FILES = ("config.json", "bigvgan_generator.pt")
 
-# --- WavLM domain -----------------------------------------------------------------
-KNNVC_REPO = "https://github.com/bshall/knn-vc.git"
-KNNVC_RELEASE = "https://github.com/bshall/knn-vc/releases/download/v0.1"
-KNNVC_FILES = (
-    "WavLM-Large.pt",            # encoder
-    "g_02500000.pt",             # decoder trained on raw features -- the one to use
-    "prematch_g_02500000.pt",    # decoder trained on kNN-prematched features -- control
-)
+# --- WavLM domain: code and the two weights a conversion reads come from ensure_knnvc ---
+KNNVC_PREMATCH_FILE = "prematch_g_02500000.pt"   # decoder on prematched features -- control
 
 
 def clone(url: str, dest: Path, force: bool) -> None:
@@ -161,55 +162,6 @@ def check_hosts() -> int:
     return 1 if blocked else 0
 
 
-def _fetch_url(url: str, part: Path) -> None:
-    """curl if available (follows redirects, resumes, retries), else urllib with retries.
-
-    ``urlretrieve`` was the original implementation and is kept only as a fallback: it does
-    not resume, so a 1.2 GB transfer that drops at 90% through a proxy starts over.
-    """
-    try:
-        subprocess.run(
-            ["curl", "-fL", "--retry", "5", "--retry-delay", "5", "--retry-all-errors",
-             "-C", "-", "--connect-timeout", "30", "-o", str(part), url],
-            check=True,
-        )
-        return
-    except FileNotFoundError:
-        pass
-
-    last: Exception | None = None
-    for attempt in range(1, 4):
-        try:
-            urllib.request.urlretrieve(url, part)
-            return
-        except Exception as e:                                  # noqa: BLE001
-            last = e
-            print(f"        attempt {attempt}/3 failed: {e}")
-    raise RuntimeError(f"could not download {url}") from last
-
-
-def fetch(url: str, dest: Path, force: bool) -> None:
-    """Download ``url`` to ``dest`` via a ``.part`` file, so a kill leaves no half-file."""
-    if dest.exists() and not force:
-        print(f"  [skip] {dest.name} already present ({dest.stat().st_size / 1e6:.0f} MB)")
-        return
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    part = dest.with_suffix(dest.suffix + ".part")
-    print(f"  [get] {url}")
-    try:
-        _fetch_url(url, part)
-    except Exception as e:                                      # noqa: BLE001
-        raise SystemExit(
-            f"\nFailed to download {url}\n  {e}\n\n"
-            f"proxy environment: {_proxy_env() or '(none set)'}\n\n"
-            "This URL 302-redirects to a CDN host, so reaching the host in the URL is not\n"
-            "enough. Run with --check to see which host is refused, then read the\n"
-            "'Behind an HTTP proxy' section of this script's docstring."
-        ) from e
-    part.replace(dest)
-    print(f"        -> {dest} ({dest.stat().st_size / 1e6:.0f} MB)")
-
-
 def hf_file_url(model: str, filename: str) -> str:
     return f"https://huggingface.co/{model}/resolve/main/{filename}"
 
@@ -263,13 +215,10 @@ def download_mel(dest: Path, force: bool) -> dict[str, Path]:
 
 def download_wavlm(dest: Path, force: bool) -> dict[str, Path]:
     print("\n=== WavLM domain: kNN-VC ===")
-    repo = dest / "knn-vc"
-    clone(KNNVC_REPO, repo, force)
-
-    weights = dest / "knn-vc-weights"
-    for name in KNNVC_FILES:
-        fetch(f"{KNNVC_RELEASE}/{name}", weights / name, force)
-    return {"repo_path": repo, "weights": weights}
+    paths = ensure_knnvc(dest, force)
+    weights = dest / KNNVC_WEIGHTS_DIR
+    fetch(f"{KNNVC_RELEASE}/{KNNVC_PREMATCH_FILE}", weights / KNNVC_PREMATCH_FILE, force)
+    return {"repo_path": paths["repo_path"], "weights": weights}
 
 
 def main() -> int:
